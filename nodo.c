@@ -195,7 +195,7 @@ int mas_prioritario_pendiente_externo() {
     int mas_prioritario = -1; // -1 indica que no hay pendientes
     sem_wait(&sem_pend);
     for (int i = 0; i < num_pend; i++) {
-        if (mas_prioritario == -1 || tipo_nodos_pend[i] < mas_prioritario) {
+        if (mas_prioritario == -1 || tipo_nodos_pend[i] > mas_prioritario) {
             mas_prioritario = tipo_nodos_pend[i];
         }
     }
