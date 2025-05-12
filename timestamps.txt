@@ -1,0 +1,100 @@
+Nodo 1 - Escritor:
+Tiempo que QUIERE entrar: 1746801892.897785
+Tiempo que ENTRA: 1746801894.135165
+Tiempo que SALE: 1746801897.139132
+
+Nodo 1 - Escritor:
+Tiempo que QUIERE entrar: 1746801892.897763
+Tiempo que ENTRA: 1746801897.139170
+Tiempo que SALE: 1746801900.139241
+
+Nodo 1 - Escritor:
+Tiempo que QUIERE entrar: 1746801894.900273
+Tiempo que ENTRA: 1746801900.139271
+Tiempo que SALE: 1746801903.141208
+
+Nodo 1 - Escritor:
+Tiempo que QUIERE entrar: 1746801897.897595
+Tiempo que ENTRA: 1746801903.141250
+Tiempo que SALE: 1746801906.144940
+
+Nodo 2 - Escritor:
+Tiempo que QUIERE entrar: 1746801893.692439
+Tiempo que ENTRA: 1746801906.145025
+Tiempo que SALE: 1746801909.149947
+
+Nodo 2 - Escritor:
+Tiempo que QUIERE entrar: 1746801893.692432
+Tiempo que ENTRA: 1746801909.149983
+Tiempo que SALE: 1746801912.156198
+
+Nodo 2 - Escritor:
+Tiempo que QUIERE entrar: 1746801895.692515
+Tiempo que ENTRA: 1746801912.156231
+Tiempo que SALE: 1746801915.156904
+
+Nodo 2 - Escritor:
+Tiempo que QUIERE entrar: 1746801898.692927
+Tiempo que ENTRA: 1746801915.156944
+Tiempo que SALE: 1746801918.162663
+
+Nodo 3 - Escritor:
+Tiempo que QUIERE entrar: 1746801894.445096
+Tiempo que ENTRA: 1746801918.163199
+Tiempo que SALE: 1746801921.165103
+
+Nodo 3 - Escritor:
+Tiempo que QUIERE entrar: 1746801894.445096
+Tiempo que ENTRA: 1746801921.165124
+Tiempo que SALE: 1746801924.166450
+
+Nodo 3 - Escritor:
+Tiempo que QUIERE entrar: 1746801896.444564
+Tiempo que ENTRA: 1746801924.166484
+Tiempo que SALE: 1746801927.167329
+
+Nodo 3 - Escritor:
+Tiempo que QUIERE entrar: 1746801899.444392
+Tiempo que ENTRA: 1746801927.167432
+Tiempo que SALE: 1746801930.168845
+
+Nodo 4 - Escritor:
+Tiempo que QUIERE entrar: 1746801895.135788
+Tiempo que ENTRA: 1746801930.168989
+Tiempo que SALE: 1746801933.173852
+
+Nodo 4 - Escritor:
+Tiempo que QUIERE entrar: 1746801895.135888
+Tiempo que ENTRA: 1746801933.173908
+Tiempo que SALE: 1746801936.189151
+
+Nodo 4 - Escritor:
+Tiempo que QUIERE entrar: 1746801897.139302
+Tiempo que ENTRA: 1746801936.189256
+Tiempo que SALE: 1746801939.189564
+
+Nodo 4 - Escritor:
+Tiempo que QUIERE entrar: 1746801900.135154
+Tiempo que ENTRA: 1746801939.189608
+Tiempo que SALE: 1746801942.213486
+
+Nodo 1 - Escritor:
+Tiempo que QUIERE entrar: 1746801898.897384
+Tiempo que ENTRA: 1746801942.213625
+Tiempo que SALE: 1746801945.214339
+
+Nodo 2 - Escritor:
+Tiempo que QUIERE entrar: 1746801899.692600
+Tiempo que ENTRA: 1746801945.214449
+Tiempo que SALE: 1746801948.237068
+
+Nodo 3 - Escritor:
+Tiempo que QUIERE entrar: 1746801900.444315
+Tiempo que ENTRA: 1746801948.237238
+Tiempo que SALE: 1746801951.238049
+
+Nodo 4 - Escritor:
+Tiempo que QUIERE entrar: 1746801901.135406
+Tiempo que ENTRA: 1746801951.238129
+Tiempo que SALE: 1746801954.239464
+
