@@ -895,7 +895,7 @@ void* anulacion(void* arg) {
 
         } else {//no soy el ultimo
             sem_post(&sem_cola_anulaciones);
-            printf("Paso de aqui1\n");
+            printf("Paso de aquid1\n");
 
             int mas_prioritario = mas_prioritario_pendiente_externo(); 
             printf(("Paso de aqui\n"));
