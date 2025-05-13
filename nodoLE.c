@@ -95,7 +95,7 @@ void solicitar_seccion_critica(int tipo_proceso) {//indica quien solicita
 
     for (int i = 0; i < num_nodos - 1; i++) {
         msgsnd(id_nodos[i], &msg, sizeof(struct mensaje) - sizeof(long), 0);
-        printf("Enviado REQUEST a nodo %d con ticket %d\n", nodos[i], msg.ticket);
+        //print("Enviado REQUEST a nodo %d con ticket %d\n", nodos[i], msg.ticket);
 
     
     }
@@ -115,7 +115,7 @@ void liberar_seccion_critica(int TIPO_PROCESO) {
     int nuevos_pend = 0;
     for (int k = 0; k < num_pend; k++) {
 
-        //printf("k: %d, id_nodos_pend[k]: %d, tipo_nodos_pend[k]: %d\n", k, id_nodos_pend[k], tipo_nodos_pend[k]);
+        ////print("k: %d, id_nodos_pend[k]: %d, tipo_nodos_pend[k]: %d\n", k, id_nodos_pend[k], tipo_nodos_pend[k]);
 
         if(id_nodos_pend[k] == 0) continue; // Evitar enviar a nodos no válidos
         if (tipo_nodos_pend[k] >= TIPO_PROCESO) {
@@ -124,7 +124,7 @@ void liberar_seccion_critica(int TIPO_PROCESO) {
             msg.tipo_proceso = tipo_nodos_pend[k];
 
             msgsnd(id_nodos_pend[k], &msg, sizeof(struct mensaje) - sizeof(long), 0);
-            printf("Mensaje REPLAY enviado a ID %d (tipo %d)\n", id_nodos_pend[k], tipo_nodos_pend[k]);
+            //print("Mensaje REPLAY enviado a ID %d (tipo %d)\n", id_nodos_pend[k], tipo_nodos_pend[k]);
         } else {
             // Reinsertar en la cola si aún no debe recibir REPLY
             id_nodos_pend[nuevos_pend] = id_nodos_pend[k];
@@ -154,7 +154,7 @@ void contestar_todos_replies() {
         msg.ticket = tickets_pendientes[i];     
         msg.tipo_proceso = tipo_nodos_pend[i];
         msgsnd(id_nodos_pend[i], &msg, sizeof(struct mensaje) - sizeof(long), 0);
-        printf("[Nodo %d] Enviado REPLY a nodo %d (tipo %d)\n", mi_nodo, id_nodos_pend[i], tipo_nodos_pend[i]);
+        //print("[Nodo %d] Enviado REPLY a nodo %d (tipo %d)\n", mi_nodo, id_nodos_pend[i], tipo_nodos_pend[i]);
     }
     num_pend = 0; // Limpiar la cola de pendientes
     sem_post(&sem_pend);
@@ -236,7 +236,7 @@ void* receptor(void* arg) {
 
             int id_nodo_origen = msg.id;
             int ticket_origen = msg.ticket;
-            int nodo_origen = msg.nodo;
+            //int nodo_origen = msg.nodo;
             int tipo_proceso = msg.tipo_proceso;
 
 
@@ -301,7 +301,7 @@ void* receptor(void* arg) {
 
 
                         msgsnd(id_nodo_origen, &msg, sizeof(struct mensaje) - sizeof(long), 0);
-                        printf("[Nodo %d] Enviado REPLY a nodo %d\n", mi_nodo, nodo_origen);
+                        //print("[Nodo %d] Enviado REPLY a nodo %d\n", mi_nodo, nodo_origen);
                     } else {//consultas en sc y llega pet de escritura
 
                             sem_wait(&sem_pend);
@@ -310,7 +310,7 @@ void* receptor(void* arg) {
                             tickets_pendientes[num_pend] = ticket_origen;
                             num_pend++;
                             sem_post(&sem_pend);
-                            printf("[Nodo %d] NO concedido, pq hay consultas en sc almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
+                            //print("[Nodo %d] NO concedido, pq hay consultas en sc almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
                     }
                     
                 } else {//si hay reservas en sc tambien almaceno
@@ -321,7 +321,7 @@ void* receptor(void* arg) {
                     tickets_pendientes[num_pend] = ticket_origen;
                     num_pend++;
                     sem_post(&sem_pend);
-                    printf("[Nodo %d] NO concedido pq hay reservas en sc, almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
+                    //print("[Nodo %d] NO concedido pq hay reservas en sc, almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
                 }
 
             }
@@ -333,7 +333,7 @@ void* receptor(void* arg) {
 
                 if (!quiero) {
                     conceder = 1;
-                    printf("NO quiero\n");
+                    //print("NO quiero\n");
                     sem_post(&sem_quiero);
                 } else{
 
@@ -344,7 +344,7 @@ void* receptor(void* arg) {
                         
                         sem_post(&sem_tipo_actual);
                         conceder = 1;
-                        printf("vovliendo a pedir\n");
+                        //print("vovliendo a pedir\n");
                         solicitar_seccion_critica(tipo_actual);
 
 
@@ -353,7 +353,7 @@ void* receptor(void* arg) {
                             sem_post(&sem_tipo_actual);
 
                             sem_wait(&sem_tiquet);
-                            printf("mi_tiquet: %d, ticket_origen: %d, mi_id: %d, id_nodo_origen: %d\n", ticket_esperado, ticket_origen, mi_id, id_nodo_origen);
+                            //print("mi_tiquet: %d, ticket_origen: %d, mi_id: %d, id_nodo_origen: %d\n", ticket_esperado, ticket_origen, mi_id, id_nodo_origen);
                             if (ticket_origen < ticket_esperado ||
                                 (ticket_origen == ticket_esperado && id_nodo_origen < mi_id)) {
                                 conceder = 1;
@@ -383,7 +383,7 @@ void* receptor(void* arg) {
                     
                     
                     msgsnd(id_nodo_origen, &msg, sizeof(struct mensaje) - sizeof(long), 0);
-                    printf("[Nodo %d] Enviado REPLY a nodo %d\n", mi_nodo, nodo_origen);
+                    //print("[Nodo %d] Enviado REPLY a nodo %d\n", mi_nodo, nodo_origen);
                 } else {
                     sem_wait(&sem_pend);
                     id_nodos_pend[num_pend] = id_nodo_origen;
@@ -391,7 +391,7 @@ void* receptor(void* arg) {
                     tickets_pendientes[num_pend] = ticket_origen;
                     num_pend++;
                     sem_post(&sem_pend);
-                    printf("[Nodo %d] NO concedido pq no concedido, almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
+                    //print("[Nodo %d] NO concedido pq no concedido, almacenado pendiente a nodo %d\n", mi_nodo, nodo_origen);
                 }   
 
             }
@@ -407,7 +407,7 @@ void* receptor(void* arg) {
             if(ticket != ticket_esperado) { //LA PRIORIDAD DEL REPLY ES LA PRIO A LA Q CREIAN Q ESTABAN CONTESTANDO
                 
                 sem_post(&sem_tiquet);
-                printf("tirando reply\n");
+                //print("tirando reply\n");
                 continue;
             }
             else{
@@ -415,15 +415,15 @@ void* receptor(void* arg) {
                 sem_wait(&sem_respuestas_recibidas);
                 if(respuestas_recibidas < num_nodos - 1){
 
-                    printf("Mensaje REPLAY recibido de nodo %d\n", msg.nodo);
+                    //print("Mensaje REPLAY recibido de nodo %d\n", msg.nodo);
                     respuestas_recibidas++;
-                    printf("[Nodo %d] Respuestas recibidas: %d\n", mi_nodo, respuestas_recibidas);
+                    //print("[Nodo %d] Respuestas recibidas: %d\n", mi_nodo, respuestas_recibidas);
                 }
                 if(respuestas_recibidas == num_nodos - 1) {
 
                     sem_post(&sems_sc[tipo_proceso]);
 
-                    printf("[Nodo %d] Sección crítica concedida\n", mi_nodo);
+                    //print("[Nodo %d] Sección crítica concedida\n", mi_nodo);
                     respuestas_recibidas = 0;
                 }
                 sem_post(&sem_respuestas_recibidas);
@@ -466,7 +466,7 @@ void* escritor(void* arg) {
 
     gettimeofday(&t_solicita, NULL);
 
-    //printf(("entramos qaqui\n"));
+    ////print(("entramos qaqui\n"));
     //sem_wait(&sem_max_tiquet); mi_tiquet = max_tiquet + 1; sem_post(&sem_max_tiquet);
    
    //habria q comprobar si eres el mas prioritario del nodo, por ahora obviamos
@@ -486,12 +486,12 @@ void* escritor(void* arg) {
 
         int quien_pide = mas_prioritario_interno();
         
-        //printf("quien pide: %d, tipo %d\n", quien_pide, tipo);
+        ////print("quien pide: %d, tipo %d\n", quien_pide, tipo);
         if(posicion == 0 && quien_pide == tipo) {//soy el primero y el mas prioritario
 
             
             solicitar_seccion_critica(tipo);
-            printf("[Nodo %d] Primer escritor, tipo %d solicita sección crítica distribuida\n", mi_nodo, tipo);
+            //print("[Nodo %d] Primer escritor, tipo %d solicita sección crítica distribuida\n", mi_nodo, tipo);
             sem_wait(&sems_sc[tipo]);
 
 
@@ -505,14 +505,29 @@ void* escritor(void* arg) {
         dentro_array[tipo] = 1;
         sem_post(&sem_dentro);
 
+
         gettimeofday(&t_entra, NULL);
+
+
+        struct tm* tm_info;
+        char buffer[26];
+        tm_info = localtime(&t_entra.tv_sec);
+        strftime(buffer, 26, "%H:%M:%S", tm_info);
+        printf("Hora de entrada: %s.%.3ld\n", buffer, t_entra.tv_usec / 1000);
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
+        printf("duermo durante %f\n", tiempos_sc[tipo]);
+
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
-        int restantes;
 
         gettimeofday(&t_sale, NULL);
+
+        struct tm* tm_info_sale;
+        char buffer_sale[26];
+        tm_info_sale = localtime(&t_sale.tv_sec);
+        strftime(buffer_sale, 26, "%H:%M:%S", tm_info_sale);
+        printf("Hora de salida: %s.%.3ld\n", buffer_sale, t_sale.tv_usec / 1000);
 
         sem_wait(&sems_colas[tipo]);
 
@@ -535,7 +550,7 @@ void* escritor(void* arg) {
                 sem_post(&sem_dentro);
 
 
-                printf("[Nodo %d] Último tipo %d, libera sección crítica distribuida\n", mi_nodo,tipo);
+                //print("[Nodo %d] Último tipo %d, libera sección crítica distribuida\n", mi_nodo,tipo);
                 
                 
                 if(mas_interno != -1){
@@ -617,7 +632,7 @@ void* escritor(void* arg) {
                         sem_post(&sem_dentro);
 
 
-                        printf("[Nodo %d] Escritor tipo %d maximo, libera sección crítica distribuida\n", mi_nodo, tipo);
+                        //print("[Nodo %d] Escritor tipo %d maximo, libera sección crítica distribuida\n", mi_nodo, tipo);
                     
                         solicitar_seccion_critica(tipo);
 
@@ -653,13 +668,24 @@ void* escritor(void* arg) {
         gettimeofday(&t_entra, NULL);
 
 
+        struct tm* tm_info;
+        char buffer[26];
+        tm_info = localtime(&t_entra.tv_sec);
+        strftime(buffer, 26, "%H:%M:%S", tm_info);
+        printf("Hora de entrada: %s.%.3ld\n", buffer, t_entra.tv_usec / 1000);
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
+        printf("duermo durante %f\n", tiempos_sc[tipo]);
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
-        int restantes;
 
         gettimeofday(&t_sale, NULL);
+
+        struct tm* tm_info_sale;
+        char buffer_sale[26];
+        tm_info_sale = localtime(&t_sale.tv_sec);
+        strftime(buffer_sale, 26, "%H:%M:%S", tm_info_sale);
+        printf("Hora de salida: %s.%.3ld\n", buffer_sale, t_sale.tv_usec / 1000);
 
         sem_wait(&sems_colas[tipo]);
 
@@ -679,7 +705,7 @@ void* escritor(void* arg) {
                 sem_post(&sem_dentro);
 
 
-                printf("[Nodo %d] Último tipo %d, libera sección crítica distribuida\n", mi_nodo,tipo);
+                //print("[Nodo %d] Último tipo %d, libera sección crítica distribuida\n", mi_nodo,tipo);
                 
                 
                 if(mas_interno != -1){
@@ -761,7 +787,7 @@ void* escritor(void* arg) {
                         sem_post(&sem_dentro);
 
 
-                        printf("[Nodo %d] Escritor tipo %d maximo, libera sección crítica distribuida\n", mi_nodo, tipo);
+                        //print("[Nodo %d] Escritor tipo %d maximo, libera sección crítica distribuida\n", mi_nodo, tipo);
                     
                         solicitar_seccion_critica(tipo);
 
@@ -860,7 +886,7 @@ void* consulta_hilo(void* arg) {
             if(posicion == 0) {//soy el primero
                 
                 solicitar_seccion_critica(consulta);
-                printf("[Nodo %d] Primer consulta, solicita sección crítica distribuida\n", mi_nodo);
+                //print("[Nodo %d] Primer consulta, solicita sección crítica distribuida\n", mi_nodo);
                 sem_wait(&sem_sc_consultas);
 
                 sem_wait(&sem_dentro);
@@ -869,7 +895,7 @@ void* consulta_hilo(void* arg) {
 
             } 
             else {
-                printf("CREO Q NO SE ENTRA AQUI EN LA VIDA\n");
+                //print("CREO Q NO SE ENTRA AQUI EN LA VIDA\n");
                 sem_wait(&sem_sc_consultas);
                 
             }
@@ -887,9 +913,9 @@ void* consulta_hilo(void* arg) {
 
         contestar_todos_replies();
 
-        printf("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
+        //print("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
         sleep(tiempos_sc[0]);
-        printf("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
+        //print("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
 
 
         gettimeofday(&t_sale, NULL);
@@ -904,14 +930,14 @@ void* consulta_hilo(void* arg) {
         if(restantes==0){//soy el ultimo de mi nodo
 
             sem_wait(&sem_cola_reservas);
-            printf("Cola de reservas: %d", cola_reservas);
+            //print("Cola de reservas: %d", cola_reservas);
             if(cola_reservas>0){
 
                 sem_post(&sem_cola_reservas);
                 
                 liberar_seccion_critica(reserva);//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
                 solicitar_seccion_critica(reserva);
-                printf("SC cedida a reservas locales");
+                //print("SC cedida a reservas locales");
             }
             else{
                 sem_post(&sem_cola_reservas);
@@ -927,14 +953,14 @@ void* consulta_hilo(void* arg) {
                     sem_post(&sem_dentro);
 
 
-                    printf("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
+                    //print("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
 
 
                 }
                 else{
 
                     contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
-                    printf("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
+                    //print("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
                     sem_wait(&sem_dentro);
                     dentro = 0;
                     sem_post(&sem_dentro);
@@ -959,7 +985,7 @@ void* consulta_hilo(void* arg) {
     } else {//hay reservas, espero a q me den paso. Ya manda  la soli el thread de reservas
         sem_post(&sem_cola_reservas);
         sem_wait(&sem_sc_consultas);//probablemente haya q dar paso a mas consultas.
-        printf("consulta intenta entrar en la SC\n"); 
+        //print("consulta intenta entrar en la SC\n"); 
 
         gettimeofday(&t_entra, NULL);
 
@@ -969,9 +995,9 @@ void* consulta_hilo(void* arg) {
 
         contestar_todos_replies();
 
-        printf("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
+        //print("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
         sleep(tiempos_sc[0]);
-        printf("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
+        //print("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
 
         gettimeofday(&t_sale, NULL);
         int restantes;
@@ -984,7 +1010,7 @@ void* consulta_hilo(void* arg) {
         if(restantes==0){//soy el ultimo
 
             sem_wait(&sem_cola_reservas);
-            printf("Cola de reservas: %d", cola_reservas);
+            //print("Cola de reservas: %d", cola_reservas);
 
             if(cola_reservas>0){
 
@@ -994,7 +1020,7 @@ void* consulta_hilo(void* arg) {
 
                 solicitar_seccion_critica(reserva);
                 
-                printf("SC cedida a reservas locales");
+                //print("SC cedida a reservas locales");
 
 
             }
@@ -1011,14 +1037,14 @@ void* consulta_hilo(void* arg) {
                     sem_post(&sem_dentro);
 
 
-                    printf("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
+                    //print("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
 
 
                 }
                 else{
 
                     contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
-                    printf("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
+                    //print("[Nodo %d] Último consulta, libera sección crítica distribuida\n", mi_nodo);
                     sem_wait(&sem_dentro);
                     dentro = 0;
                     sem_post(&sem_dentro);
@@ -1077,7 +1103,7 @@ int main(int argc, char *argv[]) {
     }
 
     
-    tiempos_sc= calloc(5, sizeof(int));
+    tiempos_sc= calloc(5, sizeof(float));
     mi_nodo = atoi(argv[2]);
     num_nodos = atoi(argv[1]);
     num_consultas = atoi(argv[3]);
