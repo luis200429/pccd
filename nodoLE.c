@@ -440,9 +440,8 @@ void* receptor(void* arg) {
 
 void* escritor(void* arg) {
 
-    sleep(2+(rand()%4)); // Sleep for a random time between 0 and 200 milliseconds
+    usleep(100000); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
-
     int tipo = ((int*)arg)[0];
     int contador_print_escritores = ((int*)arg)[1];
     free(arg);
@@ -517,7 +516,7 @@ void* escritor(void* arg) {
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
-        printf("duermo durante %f\n", tiempos_sc[tipo]);
+        //printf("duermo durante %f\n", tiempos_sc[tipo]);
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
 
@@ -676,7 +675,7 @@ void* escritor(void* arg) {
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
-        printf("duermo durante %f\n", tiempos_sc[tipo]);
+        //printf("duermo durante %f\n", tiempos_sc[tipo]);
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
 
         gettimeofday(&t_sale, NULL);
@@ -1112,11 +1111,11 @@ int main(int argc, char *argv[]) {
     num_administraciones = atoi(argv[6]);
     num_anulaciones = atoi(argv[7]);
 
-    tiempos_sc[0] = atoi(argv[8]);
-    tiempos_sc[1] = atoi(argv[9]);
-    tiempos_sc[2] = atoi(argv[10]);
-    tiempos_sc[3] = atoi(argv[11]); 
-    tiempos_sc[4] = atoi(argv[12]);
+    tiempos_sc[0] = atof(argv[8]);
+    tiempos_sc[1] = atof(argv[9]);
+    tiempos_sc[2] = atof(argv[10]);
+    tiempos_sc[3] = atof(argv[11]);
+    tiempos_sc[4] = atof(argv[12]);
 
     
 
