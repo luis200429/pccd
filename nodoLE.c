@@ -114,6 +114,9 @@ void liberar_seccion_critica(int TIPO_PROCESO) {
     sem_wait(&sem_pend);
     int nuevos_pend = 0;
     for (int k = 0; k < num_pend; k++) {
+
+        //printf("k: %d, id_nodos_pend[k]: %d, tipo_nodos_pend[k]: %d\n", k, id_nodos_pend[k], tipo_nodos_pend[k]);
+
         if(id_nodos_pend[k] == 0) continue; // Evitar enviar a nodos no válidos
         if (tipo_nodos_pend[k] >= TIPO_PROCESO) {
 
@@ -254,7 +257,7 @@ void* receptor(void* arg) {
 
             sem_wait(&sem_pend);//si hay una menos prioritaria la elimino
             for (int i = 0; i < num_pend; i++) {
-                if (tipo_nodos_pend[i] < tipo_proceso || ((tipo_nodos_pend[i] == tipo_proceso) && tickets_pendientes[i] < ticket_origen))  {
+                if ((id_nodos_pend[i]==id_nodo_origen)&&(tipo_nodos_pend[i] < tipo_proceso || ((tipo_nodos_pend[i] == tipo_proceso) && tickets_pendientes[i] < ticket_origen)))  {
                     // Shift elements to remove the less prioritized entry
                     for (int j = i; j < num_pend - 1; j++) {
                         id_nodos_pend[j] = id_nodos_pend[j + 1];
@@ -438,7 +441,7 @@ void* receptor(void* arg) {
 
 void* escritor(void* arg) {
 
-    sleep(6); // Sleep for a random time between 0 and 200 milliseconds
+    sleep(2+(rand()%4)); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
     int tipo = *((int*) arg);
@@ -537,7 +540,7 @@ void* escritor(void* arg) {
                 
                 if(mas_interno != -1){
                     solicitar_seccion_critica(mas_interno);
-                    contestar_todos_replies();
+                    //contestar_todos_replies();///////////////////////////////////////////////////////////////////////a lo mejor descomentar
                 }
                 else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
@@ -578,7 +581,7 @@ void* escritor(void* arg) {
                     sem_post(&sem_dentro);
 
                     solicitar_seccion_critica(mas_interno);
-                    contestar_todos_replies();
+                    //contestar_todos_replies();///////////////////////////////////////////////////////////////////////a lo mejor descomentar
 
                 }
                 else {//mas prioritario interno
@@ -610,7 +613,7 @@ void* escritor(void* arg) {
 
                         //AQUI HABRÁ Q AÑADIR COMPROBACION PRIORIDAD
                         sem_wait(&sem_dentro);
-                        dentro = 0;
+                        dentro_array[tipo] = 0;
                         sem_post(&sem_dentro);
 
 
@@ -669,7 +672,7 @@ void* escritor(void* arg) {
 
             if(mas_externo>mas_interno){//prio externa mayor
 
-                contestar_todos_replies();//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
+                contestar_todos_replies();//igual sobra
 
                 sem_wait(&sem_dentro);
                 dentro_array[tipo] = 0;
@@ -681,7 +684,7 @@ void* escritor(void* arg) {
                 
                 if(mas_interno != -1){
                     solicitar_seccion_critica(mas_interno);
-                    contestar_todos_replies();
+                    //contestar_todos_replies();///////////////////////////////////////////////////////////////////////a lo mejor descomentar
                 }
                 else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
@@ -722,7 +725,7 @@ void* escritor(void* arg) {
                     sem_post(&sem_dentro);
 
                     solicitar_seccion_critica(mas_interno);
-                    contestar_todos_replies();
+                    //contestar_todos_replies();///////////////////////////////////////////////////////////////////////a lo mejor descomentar
 
                 }
                 else {//mas prioritario interno
@@ -754,7 +757,7 @@ void* escritor(void* arg) {
 
                         //AQUI HABRÁ Q AÑADIR COMPROBACION PRIORIDAD
                         sem_wait(&sem_dentro);
-                        dentro = 0;
+                        dentro_array[tipo] = 0;
                         sem_post(&sem_dentro);
 
 
