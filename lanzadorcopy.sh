@@ -14,7 +14,7 @@ NUM_RESERVAS=$3
 TIEMPO_SC_CONSULTAS=$4
 TIEMPO_SC_RESERVAS=$5
 
-pkill -f './nodo2'
+pkill -f './nodoLE'
 ipcrm --all=msg
 # Lanzamos los programas con ID de nodo incremental
 for (( ID_NODO=1; ID_NODO<=NUM_TOTAL_NODOS; ID_NODO++ ))

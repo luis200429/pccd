@@ -62,6 +62,9 @@ sem_t sem_quiero, sem_tipo_actual, sem_tiquet, sem_max_tiquet, sem_sc_reservas,s
 sem_t sem_cola_reservas, sem_cola_consultas, sem_pend, sem_cola_anulaciones;
 sem_t sem_max_procesos, sem_sc_consultas, sem_respuestas_recibidas;
 sem_t sem_bloqueo_consultas, sem_dentro,sem_tipo_pendiente, sem_fichero;
+sem_t* sems_sc;
+
+
 
 
 
@@ -170,6 +173,18 @@ int hay_reservas_pendientes() {
     return resultado;
 }
 
+int hay_anulaciones_pendientes() {
+    int resultado = 0;
+    sem_wait(&sem_pend);
+    for (int i = 0; i < num_pend; i++) {
+        if (tipo_nodos_pend[i] == anulacion) {
+            resultado = 1;
+            break;
+        }
+    }
+    sem_post(&sem_pend);
+    return resultado;
+}
 
 ///////////////////////////////////////////////////////RECEPTOR//////////////////////////////////////////////////////
 
@@ -177,6 +192,7 @@ void* receptor(void* arg) {
 
     //usleep((rand() % 8000000)); // Sleep for a random time between 0 and 200 milliseconds
     struct mensaje msg;
+    int solicita = 0;
 
     while(1) {
         msgrcv(mi_id, &msg, sizeof(struct mensaje) - sizeof(long), -2, 0);  // Escucha ambos tipos
@@ -213,7 +229,7 @@ void* receptor(void* arg) {
                 if(cola_reservas==0) {//si en la sc hay consultas dejo pasar
                     sem_post(&sem_cola_reservas);
 
-                    if(tipo_proceso == consulta) {//consultas en sc y llega pet de consulta
+                    if(tipo_proceso == consulta) {//consultas en sc y llega apet de consulta
 
                         msg.id = mi_id;
                         msg.tipo = 2;
@@ -263,17 +279,21 @@ void* receptor(void* arg) {
 
                     sem_post(&sem_quiero);
                     sem_wait(&sem_tipo_actual);
-
                     if (tipo_actual < tipo_proceso) {
                         
+                         solicita = tipo_actual;
+
                         sem_post(&sem_tipo_actual);
                         conceder = 1;
                         printf("vovliendo a pedir\n");
-                        solicitar_seccion_critica(tipo_actual);
+                        solicitar_seccion_critica(solicita);
 
 
                     } else{
                         if (tipo_actual == tipo_proceso) {
+                            
+                            solicita = tipo_actual;
+
                             sem_post(&sem_tipo_actual);
 
                             sem_wait(&sem_tiquet);
@@ -292,6 +312,8 @@ void* receptor(void* arg) {
 
 
                 if (conceder) {
+
+                 
                     msg.id = mi_id;
                     msg.tipo = 2;
                     msg.nodo = mi_nodo;
@@ -366,7 +388,7 @@ void* receptor(void* arg) {
 
 void* reserva_hilo(void* arg) {
 
-    usleep((rand() % 50000)); // Sleep for a random time between 0 and 200 milliseconds
+    sleep(3); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
     int contador_print_reservas = *((int*) arg);
@@ -389,7 +411,7 @@ void* reserva_hilo(void* arg) {
 
     gettimeofday(&t_solicita, NULL);
 
-    printf(("entramos qaqui\n"));
+    //printf(("entramos qaqui\n"));
     //sem_wait(&sem_max_tiquet); mi_tiquet = max_tiquet + 1; sem_post(&sem_max_tiquet);
    
    //habria q comprobar si eres el mas prioritario del nodo, por ahora obviamos
@@ -703,7 +725,7 @@ return NULL;
 void* consulta_hilo(void* arg) {
 
 
-    usleep((rand() % 50000)); // Sleep for a random time between 0 and 200 milliseconds
+    usleep(3); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
     int contador_print_consultas = *((int*) arg);
@@ -1351,7 +1373,16 @@ int main(int argc, char *argv[]) {
     //sem_init(&sem_cola_administracion, 0, 1);
     sem_init(&sem_cola_anulaciones, 0, 1);
     //sem_init(&sem_cola_pagos, 0, 1);
-  
+    
+    sems_sc = malloc(5 * sizeof(sem_t));
+    for (int i = 0; i < 5; i++) {
+        sem_init(&sems_sc[i], 0, 1);
+    }
+    
+    
+   
+    
+    
 
     pthread_t hilos[num_consultas + num_reservas + num_anulaciones];
 
@@ -1368,11 +1399,11 @@ int main(int argc, char *argv[]) {
         *arg = i;
         pthread_create(&hilos[i], NULL, consulta_hilo, arg);
     }
-    for (int i = 0; i < num_anulaciones; i++) {
+   /*  for (int i = 0; i < num_anulaciones; i++) {
         int* arg = malloc(sizeof(int));
         *arg = i;
         pthread_create(&hilos[num_consultas + num_reservas + i], NULL, anulacion_hilo, arg);
-    }
+    } */
 
 
     for (int i = 0; i < num_consultas + num_reservas + num_anulaciones; i++) pthread_join(hilos[i], NULL);
@@ -1403,7 +1434,11 @@ int main(int argc, char *argv[]) {
     //sem_destroy(&sem_cola_administracion);
     sem_destroy(&sem_cola_anulaciones);
     //sem_destroy(&sem_cola_pagos);
-
+    for (int i = 0; i < 5; i++) {
+        sem_destroy(&sems_sc[i]);
+    }
+    
+    free(sems_sc);
     free(nodos);
     free(id_nodos);
     free(id_nodos_pend);
