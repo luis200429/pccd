@@ -226,7 +226,6 @@ void* receptor(void* arg) {
 
     //usleep((rand() % 8000000)); // Sleep for a random time between 0 and 200 milliseconds
     struct mensaje msg;
-    int solicita = 0;
 
     while(1) {
         msgrcv(mi_id, &msg, sizeof(struct mensaje) - sizeof(long), -2, 0);  // Escucha ambos tipos
@@ -444,8 +443,9 @@ void* escritor(void* arg) {
     sleep(2+(rand()%4)); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
-    int tipo = *((int*) arg);
-
+    int tipo = ((int*)arg)[0];
+    int contador_print_escritores = ((int*)arg)[1];
+    free(arg);
 
     struct timeval t_solicita, t_entra, t_sale;    
 
@@ -803,7 +803,10 @@ void* escritor(void* arg) {
     double d3 = t_sale.tv_sec + t_sale.tv_usec / 1e6;
 
     sem_wait(&sem_fichero);
-    //fprintf(archivo, "%d %d %.6f %.6f %.6f E\n", mi_nodo, contador_print_escritores, d1, d2, d3);
+    if(tipo==4) fprintf(archivo, "%d %d %.6f %.6f %.6f N\n", mi_nodo, contador_print_escritores, d1, d2, d3);
+    else if(tipo==1) fprintf(archivo, "%d %d %.6f %.6f %.6f R\n", mi_nodo, contador_print_escritores, d1, d2, d3);
+    else if(tipo==2) fprintf(archivo, "%d %d %.6f %.6f %.6f P\n", mi_nodo, contador_print_escritores, d1, d2, d3);
+    else if(tipo==3) fprintf(archivo, "%d %d %.6f %.6f %.6f A\n", mi_nodo, contador_print_escritores, d1, d2, d3);
     sem_post(&sem_fichero);
 
     // Cerrar el archivo
@@ -825,7 +828,7 @@ void* consulta_hilo(void* arg) {
     usleep(3); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
-    int contador_print_consultas = *((int*) arg);
+    int contador_print_consultas = ((int) arg);
 
     struct timeval t_solicita, t_entra, t_sale;    
 
@@ -1066,9 +1069,10 @@ void* consulta_hilo(void* arg) {
 }
 
 int main(int argc, char *argv[]) {
-    int num_consultas, num_reservas, num_anulaciones;
-    if(argc != 9) {
-        fprintf(stderr, "Uso: %s <NUM_TOTAL_NODOS> <ID_nodo> <numConsultas> <numReservas> <numAnulaciones> <tiempo_sc_consultas> <tiempo_sc_reservas><ti\n", argv[0]);
+    int num_consultas, num_reservas, num_anulaciones,num_pagos,num_administraciones;
+    if(argc != 13) {
+        fprintf(stderr, "Uso: %s <NUM_TOTAL_NODOS> <ID_nodo> <numConsultas> <numReservas> <numPagos> <num_administraciones> <numAnulaciones>"
+            "<tiempo_sc_consultas> <tiempo_sc_reservas> <tiempo_sc_pagos> <tiempo_sc_administraciones> <tiempo_sc_anulaciones>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -1078,10 +1082,15 @@ int main(int argc, char *argv[]) {
     num_nodos = atoi(argv[1]);
     num_consultas = atoi(argv[3]);
     num_reservas = atoi(argv[4]);
-    num_anulaciones = atoi(argv[5]);
-    tiempos_sc[0] = atoi(argv[6]);
-    tiempos_sc[1] = atoi(argv[7]);
-    tiempos_sc[4] = atoi(argv[8]);
+    num_pagos = atoi(argv[5]);
+    num_administraciones = atoi(argv[6]);
+    num_anulaciones = atoi(argv[7]);
+
+    tiempos_sc[0] = atoi(argv[8]);
+    tiempos_sc[1] = atoi(argv[9]);
+    tiempos_sc[2] = atoi(argv[10]);
+    tiempos_sc[3] = atoi(argv[11]); 
+    tiempos_sc[4] = atoi(argv[12]);
 
     
 
@@ -1150,13 +1159,14 @@ int main(int argc, char *argv[]) {
     
     
 
-    pthread_t hilos[num_consultas + num_reservas + num_anulaciones];
+    pthread_t hilos[num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones];
 
 
     
     for (int i = 0; i < num_reservas; i++) {
-        int* arg = malloc(sizeof(int));
-        *arg = 1;
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = 1; // First parameter
+        arg[1] = i; // Second parameter
         pthread_create(&hilos[num_consultas + i], NULL, escritor, arg);
     }
     
@@ -1166,13 +1176,27 @@ int main(int argc, char *argv[]) {
         pthread_create(&hilos[i], NULL, consulta_hilo, arg);
     }
     for (int i = 0; i < num_anulaciones; i++) {
-        int* arg = malloc(sizeof(int));
-        *arg = 4;
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = 4; // First parameter
+        arg[1] = i; // Second parameter
         pthread_create(&hilos[num_consultas + num_reservas + i], NULL, escritor, arg);
     }
 
+    for (int i = 0; i < num_pagos; i++) {
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = 2; // First parameter
+        arg[1] = i; // Second parameter
+        pthread_create(&hilos[num_consultas + num_reservas + num_anulaciones + i], NULL, escritor, arg);
+    }
+    for (int i = 0; i < num_administraciones; i++) {
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = 3; // First parameter
+        arg[1] = i; // Second parameter
+        pthread_create(&hilos[num_consultas + num_reservas + num_anulaciones + num_pagos + i], NULL, escritor, arg);
+    }
 
-    for (int i = 0; i < num_consultas + num_reservas + num_anulaciones; i++) pthread_join(hilos[i], NULL);
+
+    for (int i = 0; i < num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones; i++) pthread_join(hilos[i], NULL);
     pthread_join(hilo_receptor, NULL);
 
 

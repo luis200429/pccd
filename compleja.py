@@ -42,6 +42,24 @@ def sc_vacia_durante(ini, fin, intervalos):
         vacio.append((actual, fin))
     return vacio
 
+# Colores por tipo
+colores_tipo = {
+    'C': 'blue',       # Consulta
+    'R': 'red',        # Reserva
+    'N': 'purple',     # Anulación
+    'P': 'green',      # Pago
+    'A': 'brown'       # Administración
+}
+
+# Etiquetas para leyenda
+etiquetas_tipo = {
+    'C': 'En SC (Consulta)',
+    'R': 'En SC (Reserva)',
+    'N': 'En SC (Anulación)',
+    'P': 'En SC (Pago)',
+    'A': 'En SC (Administración)'
+}
+
 # Crear figura
 fig, ax = plt.subplots(figsize=(14, len(procesos) * 0.3))
 yticks = []
@@ -63,7 +81,7 @@ for i, p in enumerate(procesos):
     label = 'Espera total' if 'Espera total' not in etiquetas_usadas else None
     if label: etiquetas_usadas.add(label)
     ax.barh(y, espera, left=p['solicitud'], height=0.4,
-             color='gold', label=label)
+            color='gold', label=label)
 
     # SC vacía durante espera
     vacios = sc_vacia_durante(p['solicitud'], p['entrada'], intervalos_SC)
@@ -71,22 +89,21 @@ for i, p in enumerate(procesos):
     if vacios and label: etiquetas_usadas.add(label)
     for v_ini, v_fin in vacios:
         ax.barh(y, v_fin - v_ini, left=v_ini, height=0.4,
-                 color='orange', label=label)
+                color='orange', label=label)
         tiempo_sc_vacia_con_espera += (v_fin - v_ini)
         label = None
 
-    # Tiempo en SC
-    if p['tipo'] == 'L':
-        label = 'En SC (Lector)' if 'En SC (Lector)' not in etiquetas_usadas else None
-        if label: etiquetas_usadas.add(label)
-        color_sc = 'blue'
+    # Tiempo en SC según tipo
+    tipo = p['tipo']
+    color_sc = colores_tipo.get(tipo, 'gray')
+    label = etiquetas_tipo.get(tipo)
+    if label and label not in etiquetas_usadas:
+        etiquetas_usadas.add(label)
     else:
-        label = 'En SC (Escritor)' if 'En SC (Escritor)' not in etiquetas_usadas else None
-        if label: etiquetas_usadas.add(label)
-        color_sc = 'red'
+        label = None
 
     ax.barh(y, p['salida'] - p['entrada'], left=p['entrada'], height=0.4,
-             color=color_sc, label=label)
+            color=color_sc, label=label)
 
 # Estética
 ax.set_yticks(yticks)
