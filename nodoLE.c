@@ -440,7 +440,7 @@ void* receptor(void* arg) {
 
 void* escritor(void* arg) {
 
-    sleep(2+(rand()%4)); // Sleep for a random time between 0 and 200 milliseconds
+    usleep(100000); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
     int tipo = ((int*)arg)[0];
@@ -509,6 +509,7 @@ void* escritor(void* arg) {
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
+        printf("Duermo durante %f\n", tiempos_sc[tipo]);
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
         int restantes;
 
@@ -656,6 +657,8 @@ void* escritor(void* arg) {
 
         printf("[Nodo %d] Escritor (posición %d) y tipo %d entra en la sección crítica\n", mi_nodo, posicion, tipo);
         sleep(tiempos_sc[tipo]);
+        printf("Duermo durante %f\n", tiempos_sc[tipo]);
+
         printf("[Nodo %d] Escritor (posición %d) y tipo %d sale de la sección crítica\n", mi_nodo, posicion,tipo);
         int restantes;
 
@@ -825,18 +828,20 @@ return NULL;
 void* consulta_hilo(void* arg) {
 
 
-    usleep(3); // Sleep for a random time between 0 and 200 milliseconds
+    usleep(rand()%100000); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
-    int contador_print_consultas = ((int) arg);
+   
+    int tipo = ((int*)arg)[0];
+    int contador_print_consultas = ((int*)arg)[1];
+    free(arg);
 
     struct timeval t_solicita, t_entra, t_sale;    
 
     //1 tiempo que QUIERE entrar
     //2 tiempo que ENTRA
     //3 tiempo que SALE
-
-    sem_wait(&sem_cola_consultas);
+    sem_wait(&sems_colas[tipo]);
     posicion=cola_consultas++;
     sem_post(&sem_cola_consultas);
 
@@ -1077,7 +1082,7 @@ int main(int argc, char *argv[]) {
     }
 
     
-    tiempos_sc= calloc(5, sizeof(int));
+    tiempos_sc= calloc(5, sizeof(float));
     mi_nodo = atoi(argv[2]);
     num_nodos = atoi(argv[1]);
     num_consultas = atoi(argv[3]);
@@ -1086,11 +1091,11 @@ int main(int argc, char *argv[]) {
     num_administraciones = atoi(argv[6]);
     num_anulaciones = atoi(argv[7]);
 
-    tiempos_sc[0] = atoi(argv[8]);
-    tiempos_sc[1] = atoi(argv[9]);
-    tiempos_sc[2] = atoi(argv[10]);
-    tiempos_sc[3] = atoi(argv[11]); 
-    tiempos_sc[4] = atoi(argv[12]);
+    tiempos_sc[0] = atof(argv[8]);
+    tiempos_sc[1] = atof(argv[9]);
+    tiempos_sc[2] = atof(argv[10]);
+    tiempos_sc[3] = atof(argv[11]); 
+    tiempos_sc[4] = atof(argv[12]);
 
     
 
@@ -1171,8 +1176,9 @@ int main(int argc, char *argv[]) {
     }
     
     for (int i = 0; i < num_consultas; i++) {
-        int* arg = malloc(sizeof(int));
-        *arg = i;
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = 0; // First parameter
+        arg[1] = i; // Second parameter
         pthread_create(&hilos[i], NULL, consulta_hilo, arg);
     }
     for (int i = 0; i < num_anulaciones; i++) {
