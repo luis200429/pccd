@@ -133,10 +133,10 @@ void liberar_seccion_critica(int TIPO_PROCESO) {
     }
     num_pend = nuevos_pend;
     sem_post(&sem_pend);
-/* 
-    sem_wait(&sem_quiero); quiero = 0; sem_post(&sem_quiero);
-    sem_wait(&sem_tipo_actual); tipo_actual = -1; sem_post(&sem_tipo_actual); */
+
 }
+
+
 
 void contestar_todos_replies() {
     struct mensaje msg;
@@ -178,18 +178,6 @@ int hay_reservas_pendientes() {
     return resultado;
 }
 
-int hay_mas_prioritario_pendiente(int tipo_proceso) {
-    int resultado = 0;
-    sem_wait(&sem_pend);
-    for (int i = 0; i < num_pend; i++) {
-        if (tipo_nodos_pend[i] < tipo_proceso) {
-            resultado = 1;
-            break;
-        }
-    }
-    sem_post(&sem_pend);
-    return resultado;
-}
 
 int mas_prioritario_pendiente_externo() {
     int mas_prioritario = -1; // -1 indica que no hay pendientes
@@ -202,6 +190,24 @@ int mas_prioritario_pendiente_externo() {
     sem_post(&sem_pend);
     return mas_prioritario;
 }
+
+
+int mas_prioritario_pendiente_externo_complejo() {
+    
+    int mas_prioritario = -1; // -1 indica que no hay pendientes
+    sem_wait(&sem_pend);
+    for (int i = 0; i < num_pend; i++) {
+        if (mas_prioritario == -1 || 
+            tipo_nodos_pend[i] > mas_prioritario || 
+            (tipo_nodos_pend[i] == mas_prioritario && tickets_pendientes[i] < tickets_pendientes[mas_prioritario]) || 
+            (tipo_nodos_pend[i] == mas_prioritario && tickets_pendientes[i] == tickets_pendientes[mas_prioritario] && id_nodos_pend[i] < id_nodos_pend[mas_prioritario])) {
+            mas_prioritario = i;
+        }
+    }
+    sem_post(&sem_pend);
+    return mas_prioritario;
+}
+
 
 int mas_prioritario_interno() {
 
@@ -310,13 +316,60 @@ void liberar_sc_prioridades(int tipo_proceso) {
     }
     else {
 
-        liberar_seccion_critica(mas_priotaria_externa);//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
+        struct mensaje msg;
+        msg.tipo = 2;
+        msg.nodo = mi_nodo;
+        int nuevos_pend = 0;
+
+        sem_wait(&sem_pend);
+        for (int k = 0; k < num_pend; k++) {
+            if (tipo_nodos_pend[k] > mas_prioritaria_interna) {
+    
+                msg.ticket = tickets_pendientes[k];     
+                msg.tipo_proceso = tipo_nodos_pend[k];
+    
+                msgsnd(id_nodos_pend[k], &msg, sizeof(struct mensaje) - sizeof(long), 0);
+                printf("Mensaje REPLAY enviado a ID %d (tipo %d)\n", id_nodos_pend[k], tipo_nodos_pend[k]);
+            } else {
+
+                sem_wait(&sem_tiquet);
+                if((tipo_nodos_pend[k] == mas_prioritaria_interna )&&(tickets_pendientes[k] < ticket_esperado ||
+                    (tickets_pendientes[k] == ticket_esperado && id_nodos_pend[k] < mi_id))) {
+                    
+                    sem_post(&sem_tiquet);
+                    msg.ticket = tickets_pendientes[k];     
+                    msg.tipo_proceso = tipo_nodos_pend[k];
+
+                    msgsnd(id_nodos_pend[k], &msg, sizeof(struct mensaje) - sizeof(long), 0);
+                    printf("Mensaje REPLAY enviado a ID %d (tipo %d)\n", id_nodos_pend[k], tipo_nodos_pend[k]);
+                }
+                else{
+                    sem_post(&sem_tiquet);
+
+                    id_nodos_pend[nuevos_pend] = id_nodos_pend[k];
+                    tipo_nodos_pend[nuevos_pend] = tipo_nodos_pend[k];
+                    tickets_pendientes[nuevos_pend] = tickets_pendientes[k];
+                    nuevos_pend++;
+                    
+                    
+                }
+            }
+        }
+        num_pend = nuevos_pend;
+        sem_post(&sem_pend);
 
         sem_wait(&sem_dentro);
         dentro_array[tipo_proceso] = 0;
         sem_post(&sem_dentro);
         printf("[Nodo %d] Último , libera sección crítica distribuida para proceso mas prioritario\n", mi_nodo);
 
+        
+        /* liberar_seccion_critica(mas_priotaria_externa);//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
+
+        sem_wait(&sem_dentro);
+        dentro_array[tipo_proceso] = 0;
+        sem_post(&sem_dentro);
+        printf("[Nodo %d] Último , libera sección crítica distribuida para proceso mas prioritario\n", mi_nodo); */
         solicitar_seccion_critica(mas_prioritaria_interna);
     }
     
@@ -419,14 +472,15 @@ void* receptor(void* arg) {
 
                     if (tipo_actual < tipo_proceso) {
                         
+                        
                         sem_post(&sem_tipo_actual);
                         conceder = 1;
                         printf("vovliendo a pedir\n");
-                        solicitar_seccion_critica(tipo_actual);
 
 
                     } else{
                         if (tipo_actual == tipo_proceso) {
+
                             sem_post(&sem_tipo_actual);
 
                             sem_wait(&sem_tiquet);
@@ -445,6 +499,12 @@ void* receptor(void* arg) {
 
 
                 if (conceder) {
+
+                    sem_wait(&sem_tipo_actual); 
+                    solicitar_seccion_critica(tipo_actual);
+                    
+                    sem_post(&sem_tipo_actual);
+
                     msg.id = mi_id;
                     msg.tipo = 2;
                     msg.nodo = mi_nodo;
@@ -565,7 +625,7 @@ void* reserva(void* arg) {
    
 
     int mas_prioritario = mas_prioritario_interno();
-   if(alguien_dentro() == 0 && mas_prioritario == RESERVA) {
+    if(alguien_dentro() == 0 && mas_prioritario == RESERVA) {
         if(posicion == 0) {
             solicitar_seccion_critica(RESERVA);
             printf("[Nodo %d] Primer reserva, solicita sección crítica distribuida\n", mi_nodo);
@@ -604,7 +664,7 @@ void* reserva(void* arg) {
             
         } 
         else {//no soy el ultimo
-
+            sem_post(&sem_cola_reservas);
             //liberar_sc_prioridades(RESERVA);//EN PARAMETRO quien eres
 
             int mas_prioritaria_interna = mas_prioritario_interno();
@@ -618,9 +678,9 @@ void* reserva(void* arg) {
             
                     sem_wait(&sem_respuestas_recibidas); respuestas_recibidas = 0; sem_post(&sem_respuestas_recibidas);
             
-                    if(mas_prioritaria_interna == 3) sem_post(&sem_sc_administracion);
+                    if(mas_prioritaria_interna == 4) sem_post(&sem_sc_anulaciones);
                     else if(mas_prioritaria_interna == 2) sem_post(&sem_sc_pagos);
-                    else if(mas_prioritaria_interna == 1) sem_post(&sem_sc_reservas);
+                    else if(mas_prioritaria_interna == 3) sem_post(&sem_sc_administracion);
                     else if(mas_prioritaria_interna == 0) sem_post(&sem_sc_consultas);
             
                 }
@@ -648,7 +708,7 @@ void* reserva(void* arg) {
 
                     if(por_atender == 0) {//se han atendido N, recordar restablecer valor
 
-                        liberar_sc_prioridades(RESERVA);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
+                        liberar_seccion_critica(RESERVA);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
                         sem_wait(&sem_max_procesos);
                         maxProcesos = 4;
                         sem_post(&sem_max_procesos);
@@ -709,7 +769,7 @@ void* reserva(void* arg) {
             
         } 
         else {//no soy el ultimo
-
+            sem_post(&sem_cola_reservas);
             //liberar_sc_prioridades(RESERVA);//EN PARAMETRO quien eres
 
             int mas_prioritaria_interna = mas_prioritario_interno();
@@ -724,6 +784,7 @@ void* reserva(void* arg) {
                     sem_wait(&sem_respuestas_recibidas); respuestas_recibidas = 0; sem_post(&sem_respuestas_recibidas);
             
                     if(mas_prioritaria_interna == 3) sem_post(&sem_sc_administracion);
+                    else if(mas_prioritaria_interna == 4) sem_post(&sem_sc_anulaciones);
                     else if(mas_prioritaria_interna == 2) sem_post(&sem_sc_pagos);
                     else if(mas_prioritaria_interna == 1) sem_post(&sem_sc_reservas);
                     else if(mas_prioritaria_interna == 0) sem_post(&sem_sc_consultas);
@@ -753,7 +814,7 @@ void* reserva(void* arg) {
 
                     if(por_atender == 0) {//se han atendido N, recordar restablecer valor
 
-                        liberar_sc_prioridades(RESERVA);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
+                        liberar_seccion_critica(RESERVA);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
                         sem_wait(&sem_max_procesos);
                         maxProcesos = 4;
                         sem_post(&sem_max_procesos);
