@@ -12,6 +12,7 @@
 
 #define consulta 0
 #define reserva 1
+#define anulacion 4
 
 struct mensaje {
     long tipo;
@@ -22,11 +23,11 @@ struct mensaje {
 };
 
 
-
-
 float tiempo_sc_consultas = 0;
 float tiempo_sc_reservas = 0;
-
+float tiempo_sc_anulaciones = 0;
+float tiempo_sc_administracion = 0;
+float tiempo_sc_pagos = 0;
 
 
 
@@ -42,12 +43,14 @@ int* tipo_nodos_pend;
 int* tickets_pendientes;
 int quiero = 0;
 int dentro = 0;
+int* dentro_array;
 int tipo_actual = -1;
 int tipo_pendiente = -1;
 int max_tiquet = 0;
 int en_sc = 0;
 int cola_reservas = 0;
 int cola_consultas = 0;
+int cola_anulaciones = 0;
 int ticket_esperado = 0;//PROTEGER?
 
 
@@ -55,8 +58,8 @@ int respuestas_recibidas = 0;
 
 int maxProcesos = 4;
 
-sem_t sem_quiero, sem_tipo_actual, sem_tiquet, sem_max_tiquet, sem_sc;
-sem_t sem_cola_reservas, sem_cola_consultas, sem_pend;
+sem_t sem_quiero, sem_tipo_actual, sem_tiquet, sem_max_tiquet, sem_sc_reservas,sem_sc_anulaciones;
+sem_t sem_cola_reservas, sem_cola_consultas, sem_pend, sem_cola_anulaciones;
 sem_t sem_max_procesos, sem_sc_consultas, sem_respuestas_recibidas;
 sem_t sem_bloqueo_consultas, sem_dentro,sem_tipo_pendiente, sem_fichero;
 
@@ -342,7 +345,7 @@ void* receptor(void* arg) {
                         sem_post(&sem_sc_consultas);
                     }
                     else if(tipo_proceso == reserva) {
-                        sem_post(&sem_sc);
+                        sem_post(&sem_sc_reservas);
                         
                     }
 
@@ -398,13 +401,13 @@ void* reserva_hilo(void* arg) {
         if(posicion == 0) {
             solicitar_seccion_critica(reserva);
             printf("[Nodo %d] Primer reserva, solicita sección crítica distribuida\n", mi_nodo);
-            sem_wait(&sem_sc);
+            sem_wait(&sem_sc_reservas);
 
 
 
 
         } else {
-            sem_wait(&sem_sc);
+            sem_wait(&sem_sc_reservas);
         }
 
         sem_wait(&sem_dentro);
@@ -514,7 +517,7 @@ void* reserva_hilo(void* arg) {
                     /* sem_wait(&sem_dentro);
                     dentro = 0;
                     sem_post(&sem_dentro); */
-                    sem_post(&sem_sc);
+                    sem_post(&sem_sc_reservas);
 
                 }
 
@@ -522,14 +525,14 @@ void* reserva_hilo(void* arg) {
             }
             else {//no hay reservas pendientes y no soy el ultimo
 
-                sem_post(&sem_sc);
+                sem_post(&sem_sc_reservas);
             }
 
         }
 
     } else {//hay alguien dentro
         sem_post(&sem_dentro);
-        sem_wait(&sem_sc);
+        sem_wait(&sem_sc_reservas);
 
         gettimeofday(&t_entra, NULL);
 
@@ -634,7 +637,7 @@ void* reserva_hilo(void* arg) {
                     if(cola_consultas > 0) {
                         sem_post(&sem_cola_consultas);
                         solicitar_seccion_critica(consulta);
-                        sem_post(&sem_sc);//OJO CON ESTO
+                        sem_post(&sem_sc_reservas);//OJO CON ESTO
 
                     } else {
                         sem_post(&sem_cola_consultas);
@@ -647,7 +650,7 @@ void* reserva_hilo(void* arg) {
                     /* sem_wait(&sem_dentro);
                     dentro = 0;
                     sem_post(&sem_dentro); */
-                    sem_post(&sem_sc);
+                    sem_post(&sem_sc_reservas);
 
                 }
 
@@ -655,7 +658,7 @@ void* reserva_hilo(void* arg) {
             }
             else {//no hay reservas pendientes y no soy el ultimo
 
-                sem_post(&sem_sc);
+                sem_post(&sem_sc_reservas);
             }
 
         }
@@ -943,14 +946,348 @@ void* consulta_hilo(void* arg) {
     return NULL;
 }
 
+/////////////////////////////////////////////////////////////////anulacion////////////////////////////////////////////////////////////////////////////////////
 
+void* anulacion_hilo(void* arg) {
+
+    usleep((rand() % 50000)); // Sleep for a random time between 0 and 200 milliseconds
+    int posicion;
+
+    int contador_print_anulaciones = *((int*) arg);
+
+
+    struct timeval t_solicita, t_entra, t_sale;    
+
+    //1 tiempo que QUIERE entrar
+    //2 tiempo que ENTRA
+    //3 tiempo que SALE
+
+
+    sem_wait(&sem_cola_anulaciones);
+    posicion=cola_anulaciones++;
+    sem_post(&sem_cola_anulaciones);
+
+
+
+
+
+    gettimeofday(&t_solicita, NULL);
+
+    printf(("entramos qaqui\n"));
+    //sem_wait(&sem_max_tiquet); mi_tiquet = max_tiquet + 1; sem_post(&sem_max_tiquet);
+   
+   //habria q comprobar si eres el mas prioritario del nodo, por ahora obviamos
+   
+   sem_wait(&sem_dentro);
+   if(dentro == 0) {
+        sem_post(&sem_dentro);
+
+        if(posicion == 0) {
+            solicitar_seccion_critica(anulacion);
+            printf("[Nodo %d] Primer anulacion, solicita sección crítica distribuida\n", mi_nodo);
+            sem_wait(&sem_sc_reservas);
+
+
+
+
+        } else {
+            sem_wait(&sem_sc_reservas);
+        }
+
+        sem_wait(&sem_dentro);
+        dentro = 1;
+        sem_post(&sem_dentro);
+
+        gettimeofday(&t_entra, NULL);
+
+        printf("[Nodo %d] anulacion (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
+        sleep(tiempo_sc_anulaciones);
+        printf("[Nodo %d] anulacion (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
+        int restantes;
+
+        gettimeofday(&t_sale, NULL);
+
+        sem_wait(&sem_cola_anulaciones);
+
+        if(cola_anulaciones == 1) {//soy el ultimo
+            sem_post(&sem_cola_anulaciones);
+            int hay_anulacion_pendiente = hay_anulaciones_pendientes(); 
+            
+
+            if(hay_anulacion_pendiente){
+
+                contestar_todos_replies();//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
+
+                sem_wait(&sem_dentro);
+                dentro = 0;
+                sem_post(&sem_dentro);
+
+
+                printf("[Nodo %d] Último anulacion, libera sección crítica distribuida\n", mi_nodo);
+                
+                
+                
+
+                sem_wait(&sem_cola_consultas);
+                if(cola_consultas > 0) {
+                    sem_post(&sem_cola_consultas);
+                    solicitar_seccion_critica(consulta);
+                    contestar_todos_replies();
+
+
+                } else {
+                    sem_post(&sem_cola_consultas);
+                    contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+                }
+            }
+            else{//no hay anulaciones
+                
+                sem_wait(&sem_dentro);
+                dentro = 0;
+                sem_post(&sem_dentro);
+
+
+                sem_wait(&sem_cola_consultas);
+                if(cola_consultas > 0) {
+                    sem_post(&sem_cola_consultas);
+                    sem_wait(&sem_tipo_actual);
+                    tipo_actual = consulta;////////////////////////si no no contesta replys
+                    sem_post(&sem_tipo_actual);
+                    //solicitar_seccion_critica(consulta);
+                    sem_post(&sem_sc_consultas);//OJO CON ESTO
+                    //contestar_todos_replies(10);
+
+
+                } else {
+                    sem_post(&sem_cola_consultas);
+                    contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+                    printf("[Nodo %d] Último anulacion, libera sección crítica distribuida\n", mi_nodo);
+                }
+
+            }
+
+        } else {//no soy el ultimo
+            sem_post(&sem_cola_anulaciones);
+            int hay_anulacion_pendiente = hay_anulaciones_pendientes(); 
+
+            if(hay_anulacion_pendiente){
+
+                int por_atender = 0;
+                sem_wait(&sem_max_procesos);
+                maxProcesos--;
+                por_atender = maxProcesos;
+                sem_post(&sem_max_procesos);
+
+                if(por_atender == 0) {//se han atendido N, recordar restablecer valor
+
+                    liberar_seccion_critica(anulacion);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
+                    sem_wait(&sem_max_procesos);
+                    maxProcesos = 4;
+                    sem_post(&sem_max_procesos);
+
+                    //AQUI HABRÁ Q AÑADIR COMPROBACION PRIORIDAD
+                    sem_wait(&sem_dentro);
+                    dentro = 0;
+                    sem_post(&sem_dentro);
+
+
+                    printf("[Nodo %d] anulacion maximo, libera sección crítica distribuida\n", mi_nodo);
+                
+                    solicitar_seccion_critica(anulacion);
+
+                }
+                else {//no se han atendido N, no hago nada
+
+                    /* sem_wait(&sem_dentro);
+                    dentro = 0;
+                    sem_post(&sem_dentro); */
+                    sem_post(&sem_sc_reservas);
+
+                }
+
+
+            }
+            else {//no hay anulaciones pendientes y no soy el ultimo
+
+                sem_post(&sem_sc_reservas);
+            }
+
+        }
+
+    } else {//hay alguien dentro
+        sem_post(&sem_dentro);
+        sem_wait(&sem_sc_reservas);
+
+        gettimeofday(&t_entra, NULL);
+
+        printf("[Nodo %d] anulacion (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
+        sleep(tiempo_sc_anulaciones);
+        printf("[Nodo %d] anulacion (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
+
+        gettimeofday(&t_sale, NULL);
+
+
+        int restantes;
+
+        sem_wait(&sem_cola_anulaciones);
+
+        if(cola_anulaciones == 1) {//soy el ultimo
+
+            sem_post(&sem_cola_anulaciones);
+
+            int hay_anulacion_pendiente = hay_anulaciones_pendientes(); 
+
+            if(hay_anulacion_pendiente){
+
+                contestar_todos_replies();//EN PARAMETRO A QUIEN CREEN Q CONTESTAAN
+
+                sem_wait(&sem_dentro);
+                dentro = 0;
+                sem_post(&sem_dentro);
+
+
+                printf("[Nodo %d] Último anulacion, libera sección crítica distribuida\n", mi_nodo);
+            
+                sem_wait(&sem_cola_consultas);
+                if(cola_consultas > 0) {
+                    sem_post(&sem_cola_consultas);
+                    solicitar_seccion_critica(consulta);
+                    contestar_todos_replies();
+                    //sem_post(&sem_sc_consultas);//OJO CON ESTO
+
+                } else {
+                    sem_post(&sem_cola_consultas);
+                    contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VAffLGA A TODOS
+                }
+            }
+            else{//no hay anulaciones
+                
+                sem_wait(&sem_dentro);
+                dentro = 0;
+                sem_post(&sem_dentro);
+
+
+                sem_wait(&sem_cola_consultas);
+                if(cola_consultas > 0) {
+                    sem_post(&sem_cola_consultas);
+                    //solicitar_seccion_critica(consulta);
+                    sem_wait(&sem_tipo_actual);
+                    tipo_actual = consulta;////////////////////////si no no contesta replys
+                    sem_post(&sem_tipo_actual);
+
+                    sem_post(&sem_sc_consultas);//OJO CON ESTO
+                    //contestar_todos_replies(10);//p/////////////////////////////////////////////////7ESTO FAI FALTA??????
+
+
+                } else {
+                    sem_post(&sem_cola_consultas);
+                    contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+                }
+
+            }
+
+        } else {//no soy el ultimo
+
+            sem_post(&sem_cola_anulaciones);
+
+            int hay_anulacion_pendiente = hay_anulaciones_pendientes(); 
+
+            if(hay_anulacion_pendiente){
+
+                int por_atender = 0;
+                sem_wait(&sem_max_procesos);
+                maxProcesos--;
+                por_atender = maxProcesos;
+                sem_post(&sem_max_procesos);
+
+                if(por_atender == 0) {//se han atendido N, recordar restablecer valor
+
+                    liberar_seccion_critica(anulacion);//EN PARAMETRO A QUIEN CREEN Q CONTESTA
+                    sem_wait(&sem_max_procesos);
+                    maxProcesos = 4;
+                    sem_post(&sem_max_procesos);
+
+                    //AQUI HABRÁ Q AÑADIR COMPROBACION PRIORIDAD
+                    sem_wait(&sem_dentro);
+                    dentro = 0;
+                    sem_post(&sem_dentro);
+
+
+                    printf("[Nodo %d] anulacion maximo, libera sección crítica distribuida\n", mi_nodo);
+                    
+                    solicitar_seccion_critica(anulacion);
+                    //YA SE Q QUEDAN anulaciones, PIDEN ELLOS
+                    /* sem_wait(&sem_cola_consultas);
+                    if(cola_consultas > 0) {
+                        sem_post(&sem_cola_consultas);
+                        solicitar_seccion_critica(consulta);
+                        sem_post(&sem_sc_reservas);//OJO CON ESTO
+
+                    } else {
+                        sem_post(&sem_cola_consultas);
+                        contestar_todos_replies(10);//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+                    } */
+
+                }
+                else {//no se han atendido N, no hago nada
+
+                    /* sem_wait(&sem_dentro);
+                    dentro = 0;
+                    sem_post(&sem_dentro); */
+                    sem_post(&sem_sc_reservas);
+
+                }
+
+
+            }
+            else {//no hay anulaciones pendientes y no soy el ultimo
+
+                sem_post(&sem_sc_reservas);
+            }
+
+        }
+
+
+    }
+
+    sem_wait(&sem_cola_anulaciones);
+    cola_anulaciones--;
+    sem_post(&sem_cola_anulaciones);
+   
+
+    FILE *archivo = fopen("datos.txt", "a");
+    if (archivo == NULL) {
+        perror("Error al abrir el archivo");
+        return NULL;
+    }
+    
+
+    double d1 = t_solicita.tv_sec + t_solicita.tv_usec / 1e6;
+    double d2 = t_entra.tv_sec + t_entra.tv_usec / 1e6;
+    double d3 = t_sale.tv_sec + t_sale.tv_usec / 1e6;
+
+    sem_wait(&sem_fichero);
+    fprintf(archivo, "%d %d %.6f %.6f %.6f E\n", mi_nodo, contador_print_anulaciones, d1, d2, d3);
+    sem_post(&sem_fichero);
+
+    // Cerrar el archivo
+    fclose(archivo);
+
+
+  
+
+return NULL;
+
+
+}
+   
 
 
 
 int main(int argc, char *argv[]) {
-    int num_consultas, num_pagos;
-    if(argc != 7) {
-        fprintf(stderr, "Uso: %s <NUM_TOTAL_NODOS> <ID_nodo> <numConsultas> <numPagos> <tiempo_sc_consultas> <tiempo_sc_reservas>\n", argv[0]);
+    int num_consultas, num_reservas, num_anulaciones;
+    if(argc != 9) {
+        fprintf(stderr, "Uso: %s <NUM_TOTAL_NODOS> <ID_nodo> <numConsultas> <numReservas> <numAnulaciones> <tiempo_sc_consultas> <tiempo_sc_reservas><ti\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -959,9 +1296,11 @@ int main(int argc, char *argv[]) {
     mi_nodo = atoi(argv[2]);
     num_nodos = atoi(argv[1]);
     num_consultas = atoi(argv[3]);
-    num_pagos = atoi(argv[4]);
-    tiempo_sc_consultas = atoi(argv[5]);
-    tiempo_sc_reservas = atoi(argv[6]);
+    num_reservas = atoi(argv[4]);
+    num_anulaciones = atoi(argv[5]);
+    tiempo_sc_consultas = atoi(argv[6]);
+    tiempo_sc_reservas = atoi(argv[7]);
+    tiempo_sc_anulaciones = atoi(argv[8]);
 
     
 
@@ -975,6 +1314,7 @@ int main(int argc, char *argv[]) {
     id_nodos_pend = malloc((num_nodos - 1) * sizeof(int));
     tipo_nodos_pend = malloc((num_nodos - 1) * sizeof(int));
     tickets_pendientes = malloc((num_nodos - 1) * sizeof(int));
+    dentro_array = calloc(5, sizeof(int));  // Inicializa todo a 0
 
     int idx = 0;
     for (int i = 1; i <= num_nodos; i++) {
@@ -994,7 +1334,7 @@ int main(int argc, char *argv[]) {
     sem_init(&sem_tipo_actual, 0, 1);
     sem_init(&sem_tiquet, 0, 1);
     sem_init(&sem_max_tiquet, 0, 1);
-    sem_init(&sem_sc, 0, 0);
+    sem_init(&sem_sc_reservas, 0, 0);
     sem_init(&sem_cola_reservas, 0, 1);
     sem_init(&sem_cola_consultas, 0, 1);
     sem_init(&sem_pend, 0, 1);
@@ -1005,12 +1345,19 @@ int main(int argc, char *argv[]) {
     sem_init(&sem_tipo_pendiente, 0, 1);
     sem_init(&sem_respuestas_recibidas, 0, 1);
     sem_init(&sem_fichero, 0, 1);
+    //sem_init(&sem_sc_administracion, 0, 1);
+    sem_init(&sem_sc_anulaciones, 0, 0);
+    //sem_init(&sem_sc_pagos, 0, 0);
+    //sem_init(&sem_cola_administracion, 0, 1);
+    sem_init(&sem_cola_anulaciones, 0, 1);
+    //sem_init(&sem_cola_pagos, 0, 1);
+  
 
-    pthread_t hilos[num_consultas + num_pagos];
+    pthread_t hilos[num_consultas + num_reservas + num_anulaciones];
 
 
     
-    for (int i = 0; i < num_pagos; i++) {
+    for (int i = 0; i < num_reservas; i++) {
         int* arg = malloc(sizeof(int));
         *arg = i;
         pthread_create(&hilos[num_consultas + i], NULL, reserva_hilo, arg);
@@ -1021,9 +1368,14 @@ int main(int argc, char *argv[]) {
         *arg = i;
         pthread_create(&hilos[i], NULL, consulta_hilo, arg);
     }
+    for (int i = 0; i < num_anulaciones; i++) {
+        int* arg = malloc(sizeof(int));
+        *arg = i;
+        pthread_create(&hilos[num_consultas + num_reservas + i], NULL, anulacion_hilo, arg);
+    }
 
 
-    for (int i = 0; i < num_consultas + num_pagos; i++) pthread_join(hilos[i], NULL);
+    for (int i = 0; i < num_consultas + num_reservas + num_anulaciones; i++) pthread_join(hilos[i], NULL);
     pthread_join(hilo_receptor, NULL);
 
 
@@ -1035,7 +1387,7 @@ int main(int argc, char *argv[]) {
     sem_destroy(&sem_tipo_actual);
     sem_destroy(&sem_tiquet);
     sem_destroy(&sem_max_tiquet);
-    sem_destroy(&sem_sc);
+    sem_destroy(&sem_sc_reservas);
     sem_destroy(&sem_cola_reservas);
     sem_destroy(&sem_max_procesos);
     sem_destroy(&sem_cola_consultas);
@@ -1045,6 +1397,12 @@ int main(int argc, char *argv[]) {
     sem_destroy(&sem_tipo_pendiente);
     sem_destroy(&sem_respuestas_recibidas);
     sem_destroy(&sem_fichero);
+    //sem_destroy(&sem_sc_administracion);
+    sem_destroy(&sem_sc_anulaciones);
+    //sem_destroy(&sem_sc_pagos);
+    //sem_destroy(&sem_cola_administracion);
+    sem_destroy(&sem_cola_anulaciones);
+    //sem_destroy(&sem_cola_pagos);
 
     free(nodos);
     free(id_nodos);
