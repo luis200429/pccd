@@ -265,8 +265,6 @@ int mas_prioritario_interno() {
  
     return -1; // No hay procesos pendientes
     
-   
-
 }
 
 int alguien_dentro() {
