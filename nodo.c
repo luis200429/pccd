@@ -509,11 +509,6 @@ void* receptor(void* arg) {
 
                     msg.tipo_proceso = tipo_proceso;    
 
-
-
-
-                    
-                    
                     msgsnd(id_nodo_origen, &msg, sizeof(struct mensaje) - sizeof(long), 0);
                     printf("[Nodo %d] Enviado REPLY a nodo %d\n", mi_nodo, nodo_origen);
                 } else {

@@ -1,10 +1,10 @@
 CC = gcc
 CFLAGS = -Wall -pthread
 
-all: nodoLE proceso
+all: nodo proceso
 
-nodo: nodoLE.c
-	$(CC) $(CFLAGS) -o nodo2 nodoLE.c
+nodo: nodo.c
+	$(CC) $(CFLAGS) -o nodo2 nodo.c
 
 proceso: proceso.c
 	$(CC) $(CFLAGS) -o proceso proceso.c
