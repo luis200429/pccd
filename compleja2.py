@@ -16,6 +16,7 @@ with open("datos.txt", "r") as f:
                 tipo = partes[5].upper()
                 procesos.append({
                     'id': f'{tipo} {nodo}-{proc}',
+                    'nodo': nodo,
                     'tipo': tipo,
                     'solicitud': solicitud,
                     'entrada': entrada,
@@ -24,8 +25,8 @@ with open("datos.txt", "r") as f:
             except ValueError:
                 continue
 
-# Ordenar por solicitud
-procesos.sort(key=lambda p: p['solicitud'])
+# Ordenar por nodo y luego por solicitud
+procesos.sort(key=lambda p: (p['nodo'], p['solicitud']))
 
 # Intervalos de SC
 intervalos_SC = [(p['entrada'], p['salida']) for p in procesos]
@@ -43,7 +44,7 @@ def sc_vacia_durante(ini, fin, intervalos):
         vacio.append((actual, fin))
     return vacio
 
-# Paleta de 6 colores diferenciables (ColorBrewer Set1)
+# Paleta de colores por tipo
 colores_tipo = {
     'C': '#377eb8',  # Azul
     'R': '#ff7f00',  # Naranja
@@ -69,9 +70,6 @@ colores_forzados = {
     'En SC (Administración)': '#e41a1c',
 }
 
-
-
-
 # Crear figura
 fig, ax = plt.subplots(figsize=(14, len(procesos) * 0.3))
 yticks = []
@@ -94,8 +92,6 @@ for i, p in enumerate(procesos):
     if label: etiquetas_usadas.add(label)
     ax.barh(y, espera, left=p['solicitud'], height=0.4,
             color='gold', label=label)
-    
-    
 
     # SC vacía durante espera
     vacios = sc_vacia_durante(p['solicitud'], p['entrada'], intervalos_SC)
@@ -123,7 +119,7 @@ for i, p in enumerate(procesos):
 ax.set_yticks(yticks)
 ax.set_yticklabels(ylabels)
 ax.set_xlabel("Tiempo")
-ax.set_title("Línea de tiempo por proceso: Espera, SC vacía y en SC")
+ax.set_title("Línea de tiempo por proceso: Espera, SC vacía y en SC (ordenados por nodo)")
 handles, labels = ax.get_legend_handles_labels()
 by_label = dict(zip(labels, handles))
 for label, color in colores_forzados.items():

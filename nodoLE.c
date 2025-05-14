@@ -10,7 +10,7 @@
 #include <sys/time.h>
 
 
-#define MAXPROCESOS 10
+#define MAXPROCESOS 9
 struct mensaje {
     long tipo;
     int ticket;
@@ -44,7 +44,7 @@ int ticket_esperado = 0;//PROTEGER?
 
 int respuestas_recibidas = 0;
 
-int maxProcesos = 10;
+int maxProcesos = MAXPROCESOS;
 
 sem_t sem_quiero, sem_tipo_actual, sem_tiquet, sem_max_tiquet;
 sem_t sem_pend;
@@ -60,7 +60,7 @@ sem_t* sems_colas;
 
 /////////////////////////////////////////////////////////FUNCIONES//////////////////////////////////////////////////////////////
 void solicitar_seccion_critica(int tipo_proceso) {//indica quien solicita
-
+    
     sem_wait(&sem_tipo_actual); tipo_actual = tipo_proceso; sem_post(&sem_tipo_actual);
 
     sem_wait(&sem_respuestas_recibidas); respuestas_recibidas = 0; sem_post(&sem_respuestas_recibidas);
@@ -151,6 +151,50 @@ void contestar_todos_replies() {
     sem_post(&sem_pend);
     sem_wait(&sem_quiero); quiero = 0; sem_post(&sem_quiero);
 
+}
+
+void contestar_consultas_si_no_hay_mayores() {
+    sem_wait(&sem_pend);
+    int hay_mayores = 0;
+
+    // Verificar si hay peticiones pendientes de tipo > 0
+    for (int i = 0; i < num_pend; i++) {
+        if (tipo_nodos_pend[i] > 0) {
+            hay_mayores = 1;
+            break;
+        }
+    }
+
+    if (!hay_mayores) {
+        struct mensaje msg;
+        msg.tipo = 2;
+        msg.id = mi_id;
+        msg.nodo = mi_nodo;
+
+        for (int i = 0; i < num_pend; i++) {
+            if (tipo_nodos_pend[i] == 0) { // Solo responder a consultas
+                msg.ticket = tickets_pendientes[i];
+                msg.tipo_proceso = tipo_nodos_pend[i];
+                msgsnd(id_nodos_pend[i], &msg, sizeof(struct mensaje) - sizeof(long), 0);
+                num_pend--;
+                //printf("[Nodo %d] Enviado REPLY a consulta del nodo %d\n", mi_nodo, id_nodos_pend[i]);
+            }
+        }
+
+        // Eliminar todas las consultas de la cola de pendientes
+        int nuevos_pend = 0;
+        for (int i = 0; i < num_pend; i++) {
+            if (tipo_nodos_pend[i] > 0) { // Mantener solo las peticiones de tipo > 0
+                id_nodos_pend[nuevos_pend] = id_nodos_pend[i];
+                tipo_nodos_pend[nuevos_pend] = tipo_nodos_pend[i];
+                tickets_pendientes[nuevos_pend] = tickets_pendientes[i];
+                nuevos_pend++;
+            }
+        }
+        num_pend = nuevos_pend;
+    }
+
+    sem_post(&sem_pend);
 }
 
 int mas_prioritario_interno() {
@@ -401,11 +445,11 @@ void* receptor(void* arg) {
 /////////////////////////////////////////////////////////////////ESCRITOR////////////////////////////////////////////////////////////////////////////////////
 
 void* escritor(void* arg) {
+    int tipo = ((int*)arg)[0];
 
-    usleep(rand()%200000); // Sleep for a random time between 0 and 200 milliseconds
+    usleep((rand()%100000)*tipo); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
-    int tipo = ((int*)arg)[0];
     int contador_print_escritores = ((int*)arg)[1];
     free(arg);
 
@@ -512,17 +556,30 @@ void* escritor(void* arg) {
                 sem_wait(&sem_dentro);
                 dentro_array[tipo] = 0;
                 sem_post(&sem_dentro);
+                if(mas_externo==mas_interno){
 
-                if(mas_interno != -1){
+                    contestar_todos_replies();//igual sobra
+                    sem_wait(&sem_dentro);
+                    dentro_array[tipo] = 0;
+                    sem_post(&sem_dentro);
+                    solicitar_seccion_critica(mas_interno);
+
+
+                }
+                else{
+                    if(mas_interno != -1){
 
                     sem_wait(&sem_tipo_actual);
                     tipo_actual = mas_interno;////////////////////////si no no contesta replys
                     sem_post(&sem_tipo_actual);
 
+
                     sem_post(&sems_sc[mas_interno]);
 
+                    }
+                    else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+
                 }
-                else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
             }
                 
@@ -658,19 +715,34 @@ void* escritor(void* arg) {
                 sem_wait(&sem_dentro);
                 dentro_array[tipo] = 0;
                 sem_post(&sem_dentro);
+                if(mas_externo==mas_interno){
 
-                if(mas_interno != -1){
+                    contestar_todos_replies();//igual sobra
+                    sem_wait(&sem_dentro);
+                    dentro_array[tipo] = 0;
+                    sem_post(&sem_dentro);
+                    solicitar_seccion_critica(mas_interno);
+
+
+                }
+                else{
+                    if(mas_interno != -1){
 
                     sem_wait(&sem_tipo_actual);
                     tipo_actual = mas_interno;////////////////////////si no no contesta replys
                     sem_post(&sem_tipo_actual);
 
+
                     sem_post(&sems_sc[mas_interno]);
 
+                    }
+                    else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+
                 }
-                else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
             }
+
+        
                 
             
         } else {//no soy el ultimo
@@ -789,7 +861,7 @@ return NULL;
 void* consulta_hilo(void* arg) {
 
 
-    //usleep(rand()%50000); // Sleep for a random time between 0 and 200 milliseconds
+    //usleep(rand()%500000); // Sleep for a random time between 0 and 200 milliseconds
     int posicion;
 
    
@@ -858,11 +930,12 @@ void* consulta_hilo(void* arg) {
         sem_post(&sems_colas[0]);
 
 
+        contestar_consultas_si_no_hay_mayores();
         printf("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
         usleep(tiempos_sc[0]);
         printf("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
 
-
+        
         gettimeofday(&t_sale, NULL);
 
         //int restantes;
@@ -901,18 +974,31 @@ void* consulta_hilo(void* arg) {
                 sem_wait(&sem_dentro);
                 dentro_array[tipo] = 0;
                 sem_post(&sem_dentro);
+                if(mas_externo==mas_interno){
 
-                if(mas_interno != -1){
+                    contestar_todos_replies();//igual sobra
+                    sem_wait(&sem_dentro);
+                    dentro_array[tipo] = 0;
+                    sem_post(&sem_dentro);
+                    solicitar_seccion_critica(mas_interno);
+
+
+                }
+                else{
+                    if(mas_interno != -1){
 
                     sem_wait(&sem_tipo_actual);
                     tipo_actual = mas_interno;////////////////////////si no no contesta replys
                     sem_post(&sem_tipo_actual);
 
+
                     sem_post(&sems_sc[mas_interno]);
 
-                }
-                else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+                    }
+                    else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
+                }
+                
             }
 
         }
@@ -931,7 +1017,9 @@ void* consulta_hilo(void* arg) {
         if(colas[0]>1) sem_post(&sems_sc[0]);
         sem_post(&sems_colas[0]);
 
+        //contestar_todos_replies();
 
+        contestar_consultas_si_no_hay_mayores();
         printf("[Nodo %d] consulta (posición %d) entra en la sección crítica\n", mi_nodo, posicion);
         usleep(tiempos_sc[0]);
         printf("[Nodo %d] consulta (posición %d) sale de la sección crítica\n", mi_nodo, posicion);
@@ -975,17 +1063,30 @@ void* consulta_hilo(void* arg) {
                 sem_wait(&sem_dentro);
                 dentro_array[tipo] = 0;
                 sem_post(&sem_dentro);
+                if(mas_externo==mas_interno){
 
-                if(mas_interno != -1){
+                    contestar_todos_replies();//igual sobra
+                    sem_wait(&sem_dentro);
+                    dentro_array[tipo] = 0;
+                    sem_post(&sem_dentro);
+                    solicitar_seccion_critica(mas_interno);
+
+
+                }
+                else{
+                    if(mas_interno != -1){
 
                     sem_wait(&sem_tipo_actual);
                     tipo_actual = mas_interno;////////////////////////si no no contesta replys
                     sem_post(&sem_tipo_actual);
 
+
                     sem_post(&sems_sc[mas_interno]);
 
+                    }
+                    else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
+
                 }
-                else contestar_todos_replies();//PUEDE Q SEA CHAPUZA, PERO METO NUM ALTO PARA Q LES VALGA A TODOS
 
             }
 
@@ -1016,7 +1117,7 @@ void* consulta_hilo(void* arg) {
     double d3 = t_sale.tv_sec + t_sale.tv_usec / 1e6;
 
     sem_wait(&sem_fichero);
-    fprintf(archivo, "%d %d %.6f %.6f %.6f L\n", mi_nodo, contador_print_consultas, d1, d2, d3);
+    fprintf(archivo, "%d %d %.6f %.6f %.6f C\n", mi_nodo, contador_print_consultas, d1, d2, d3);
     sem_post(&sem_fichero);
 
 
@@ -1111,10 +1212,76 @@ int main(int argc, char *argv[]) {
     
     
 
-    pthread_t hilos[num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones];
+   // pthread_t hilos[num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones];
 
 
+
+
+
+    typedef struct {
+    int tipo;   // 0: consulta, 1: reserva, 2: pago, 3: administración, 4: anulación
+    int index;
+    } Tarea;
+
+    int total_tareas = num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones;
+    Tarea* tareas = malloc(total_tareas * sizeof(Tarea));
+
+    int pos = 0;
+
+    // Llenar el array con todas las tareas
+    for (int i = 0; i < num_consultas; i++) {
+        tareas[pos++] = (Tarea){.tipo = 0, .index = i};
+    }
+    for (int i = 0; i < num_reservas; i++) {
+        tareas[pos++] = (Tarea){.tipo = 1, .index = i};
+    }
+    for (int i = 0; i < num_anulaciones; i++) {
+        tareas[pos++] = (Tarea){.tipo = 4, .index = i};
+    }
+    for (int i = 0; i < num_pagos; i++) {
+        tareas[pos++] = (Tarea){.tipo = 2, .index = i};
+    }
+    for (int i = 0; i < num_administraciones; i++) {
+        tareas[pos++] = (Tarea){.tipo = 3, .index = i};
+    }
+
+    // Mezclar el array (Fisher-Yates shuffle)
+    srand(time(NULL));
+    for (int i = total_tareas - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        Tarea temp = tareas[i];
+        tareas[i] = tareas[j];
+        tareas[j] = temp;
+    }
+
+    // Lanzar los hilos en orden aleatorio
+    pthread_t hilos[total_tareas];
+    for (int i = 0; i < total_tareas; i++) {
+        int* arg = malloc(2 * sizeof(int));
+        arg[0] = tareas[i].tipo;
+        arg[1] = tareas[i].index;
+
+        if (tareas[i].tipo == 0) {
+            pthread_create(&hilos[i], NULL, consulta_hilo, arg);
+        } else {
+            pthread_create(&hilos[i], NULL, escritor, arg);
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+/* 
     
+
+
     for (int i = 0; i < num_reservas; i++) {
         int* arg = malloc(2 * sizeof(int));
         arg[0] = 1; // First parameter
@@ -1147,7 +1314,7 @@ int main(int argc, char *argv[]) {
         arg[1] = i; // Second parameter
         pthread_create(&hilos[num_consultas + num_reservas + num_anulaciones + num_pagos + i], NULL, escritor, arg);
     }
-
+ */
 
     for (int i = 0; i < num_consultas + num_reservas + num_anulaciones + num_pagos + num_administraciones; i++) pthread_join(hilos[i], NULL);
     pthread_join(hilo_receptor, NULL);
